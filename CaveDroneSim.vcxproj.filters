@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Simulation">
+      <UniqueIdentifier>{a1b2c3d4-0001-4a5b-8c7d-9e0f1a2b3c4d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Rendering">
+      <UniqueIdentifier>{a1b2c3d4-0002-4a5b-8c7d-9e0f1a2b3c4d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Platform">
+      <UniqueIdentifier>{a1b2c3d4-0003-4a5b-8c7d-9e0f1a2b3c4d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core">
+      <UniqueIdentifier>{a1b2c3d4-0004-4a5b-8c7d-9e0f1a2b3c4d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Tests">
+      <UniqueIdentifier>{a1b2c3d4-0005-4a5b-8c7d-9e0f1a2b3c4d}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\World.cpp">
+      <Filter>Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\VoxelMap.cpp">
+      <Filter>Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Lidar.cpp">
+      <Filter>Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Planner.cpp">
+      <Filter>Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Drone.cpp">
+      <Filter>Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="src\VoxelRenderer.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="src\LineRenderer.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="src\DroneRenderer.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="src\TruthRenderer.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Meshing.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Shader.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Window.cpp">
+      <Filter>Platform</Filter>
+    </ClCompile>
+    <ClCompile Include="src\GlLoader.cpp">
+      <Filter>Platform</Filter>
+    </ClCompile>
+    <ClCompile Include="src\App.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Main.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\World.h">
+      <Filter>Simulation</Filter>
+    </ClInclude>
+    <ClInclude Include="src\VoxelMap.h">
+      <Filter>Simulation</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Lidar.h">
+      <Filter>Simulation</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Planner.h">
+      <Filter>Simulation</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Drone.h">
+      <Filter>Simulation</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Noise.h">
+      <Filter>Simulation</Filter>
+    </ClInclude>
+    <ClInclude Include="src\VoxelRenderer.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="src\LineRenderer.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="src\DroneRenderer.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="src\TruthRenderer.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Meshing.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Shader.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Camera.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Window.h">
+      <Filter>Platform</Filter>
+    </ClInclude>
+    <ClInclude Include="src\GlLoader.h">
+      <Filter>Platform</Filter>
+    </ClInclude>
+    <ClInclude Include="src\App.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Math.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Config.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="tests\HeadlessTest.cpp">
+      <Filter>Tests</Filter>
+    </None>
+    <None Include="tests\CameraFrustumTest.cpp">
+      <Filter>Tests</Filter>
+    </None>
+    <None Include="tests\GreedyMeshTest.cpp">
+      <Filter>Tests</Filter>
+    </None>
+    <None Include="README.md" />
+  </ItemGroup>
+</Project>

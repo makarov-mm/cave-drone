@@ -13,6 +13,7 @@ public:
     bool Build(const char* vertexSrc, const char* fragmentSrc);
     void Use() const;
 
+    GLint UniformLocation(const char* name) const;
     void SetMat4(const char* name, const Mat4& value) const;
     void SetVec3(const char* name, const Vec3& value) const;
     void SetFloat(const char* name, float value) const;

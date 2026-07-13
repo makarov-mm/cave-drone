@@ -48,6 +48,15 @@
     <ClCompile Include="src\Meshing.cpp">
       <Filter>Rendering</Filter>
     </ClCompile>
+    <ClCompile Include="src\PointCloudRenderer.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="src\DustRenderer.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Hud.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
     <ClCompile Include="src\Shader.cpp">
       <Filter>Rendering</Filter>
     </ClCompile>
@@ -96,6 +105,15 @@
       <Filter>Rendering</Filter>
     </ClInclude>
     <ClInclude Include="src\Meshing.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="src\PointCloudRenderer.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="src\DustRenderer.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Hud.h">
       <Filter>Rendering</Filter>
     </ClInclude>
     <ClInclude Include="src\Shader.h">

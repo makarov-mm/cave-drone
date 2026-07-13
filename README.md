@@ -1,21 +1,8 @@
 # CaveDroneSim
 
-[![GitHub Sponsors](https://img.shields.io/github/sponsors/makarov-mm?style=flat&logo=github)](https://github.com/sponsors/makarov-mm)
-[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
-![C++](https://img.shields.io/badge/C%2B%2B-00599C)
-![OpenGL](https://img.shields.io/badge/OpenGL-5586A4?logo=opengl&logoColor=white)
-![Windows](https://img.shields.io/badge/Windows-0078D6?logo=windows&logoColor=white)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-0A66C2?logo=linkedin&logoColor=white)](https://www.linkedin.com/in/makarov-mm/)
-[![Threads](https://img.shields.io/badge/Threads-000000?logo=threads&logoColor=white)](https://www.threads.net/@m.m.makarov)
-[![Instagram](https://img.shields.io/badge/Instagram-E4405F?logo=instagram&logoColor=white)](https://www.instagram.com/m.m.makarov/)
-
 Autonomous cave exploration drone fleet in C++ / WinAPI / OpenGL 3.3, zero external dependencies.
 
 A fleet of simulated quadrotors wakes up in a procedurally generated cave system with no prior map. A spinning lidar reveals the world into a sparse voxel occupancy map, a frontier-based planner repeatedly picks the nearest boundary between known and unknown space, and the flight controller banks the drone through the tunnels toward it. What you see on screen is only what the drone has discovered so far, rendered as a green voxel point-cloud in the style of industrial inspection drones (Exyn, Flyability).
-
-## Screenshot
-
-![Screenshot](screenshot.png)
 
 ## Architecture
 
@@ -56,9 +43,20 @@ MinGW-w64 (MSYS2, or cross-compile from Linux):
 
 No libraries to install. Links against opengl32, gdi32, user32 only.
 
+## Visual layer
+
+- **FPV HUD**: crosshair, an artificial horizon that counter-rotates with the physical roll of the vehicle, a compass ribbon with a heading readout, speed and altitude blocks, vehicle id and mission status. All of it is screen-space lines with a built-in vector line font, no textures. H toggles it.
+- **Point cloud mode**: the raw measured lidar returns accumulate in a 400k-point GPU ring buffer and render as distance-attenuated points, the way real SLAM tooling looks. G cycles voxels / point cloud / both.
+- **Holographic map shading**: grazing-angle rim glow, a lidar scan pulse expanding from the focused drone every few seconds, and freshly rebuilt chunks that glow and cool down, so the map visibly lives where the sensors are writing.
+- **Headlight dust**: additive dust motes drift around the focused drone in the FPV pane, lit by the same falloff as the rock, so the beam reads in the air like real cave footage.
+
 ## Split view
 
 The default layout mirrors industrial inspection drone footage: the top pane is the onboard FPV camera rendering the ground-truth cave, pitch black except for the drone's headlight, banking into turns with the physical attitude of the vehicle. The bottom pane is the reconstructed voxel map. The contrast between what the drone sees and what it knows is the whole point. V toggles between split view and full map view. The ground-truth surface is meshed once per world generation into chunks and drawn with the same frustum culling as the map.
+
+## Overview inset
+
+A small inset in the bottom-right corner shows the entire explored map at once, slowly rotating around the vertical axis, with a colored vertical beacon marking each drone. The view auto-fits the bounds of everything meshed so far, with smoothed re-framing as the map grows, and uses almost no fog since the camera is far away by design. It keeps rotating while the simulation is paused. M toggles it.
 
 ## Camera
 
@@ -67,6 +65,9 @@ Chase mode (default) flies behind the drone and smoothly aligns with the directi
 ## Controls
 
 - 1..3: switch camera and FPV focus between drones
+- M: toggle the rotating overview inset
+- G: cycle map style (voxels / point cloud / both)
+- H: toggle the FPV HUD
 - V: toggle split view (FPV + map) / full map view
 - C: toggle chase / orbit camera
 - Left mouse drag: rotate (orbit mode)
@@ -87,33 +88,3 @@ The simulation core is platform-independent. `tests/HeadlessTest.cpp` runs the f
 ## Tuning
 
 All the interesting knobs live in `src/Config.h`: world size, voxel resolution, lidar range and ray count, cruise speed, controller gains, replan interval.
-
-## License
-
-MIT License
-
-Copyright (c) 2026 Mykhailo Makarov
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-## Support
-
-If you found this project interesting or useful, you can support my work:
-
-[![GitHub Sponsors](https://img.shields.io/github/sponsors/makarov-mm?style=flat&logo=github)](https://github.com/sponsors/makarov-mm)

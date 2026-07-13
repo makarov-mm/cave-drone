@@ -30,6 +30,11 @@ in vec3 vWorldPos;
 uniform vec3 uCameraPos;
 uniform float uWorldMinY;
 uniform float uWorldHeight;
+uniform float uFogDensity;
+uniform float uTime;
+uniform vec3 uPulseOrigin;
+uniform float uChunkGlow;
+uniform float uEffects;
 out vec4 fragColor;
 void main()
 {
@@ -51,9 +56,28 @@ void main()
 
     // Exponential distance fog into cave darkness
     float dist = length(vWorldPos - uCameraPos);
-    float fog = exp(-dist * 0.030);
+    float fog = exp(-dist * uFogDensity);
 
     vec3 color = base * shade * edge;
+
+    // Holographic rim: surfaces seen at a grazing angle glow at the edges
+    vec3 viewDir = (uCameraPos - vWorldPos) / max(dist, 1e-4);
+    float rim = pow(1.0 - abs(dot(vNormal, viewDir)), 2.5);
+    color += vec3(0.15, 0.75, 0.45) * rim * 0.5 * uEffects;
+
+    // Lidar scan pulse: a spherical wave expanding from the focused drone
+    // every few seconds, fading toward the end of each cycle
+    float cyclePos = fract(uTime / 3.5);
+    float pulseRadius = cyclePos * 34.0;
+    float pulseDist = length(vWorldPos - uPulseOrigin);
+    float band = exp(-abs(pulseDist - pulseRadius) * 1.4);
+    float pulseFade = 1.0 - cyclePos;
+    color += vec3(0.20, 1.00, 0.55) * band * pulseFade * 0.55 * uEffects;
+
+    // Freshly rebuilt chunks glow and cool down: the map looks alive where
+    // the sensors are currently writing
+    color += vec3(0.55, 1.00, 0.65) * uChunkGlow * 0.35 * uEffects;
+
     vec3 fogColor = vec3(0.01, 0.02, 0.01);
     fragColor = vec4(mix(fogColor, color, fog), 1.0);
 }
@@ -144,7 +168,7 @@ void VoxelRenderer::RebuildChunk(const VoxelMap& map, const VoxelMap::Chunk& chu
     mesh.vertexCount = static_cast<int>(verts.size() / 8);
 }
 
-void VoxelRenderer::UpdateMeshes(VoxelMap& map, int budget)
+void VoxelRenderer::UpdateMeshes(VoxelMap& map, int budget, double now)
 {
     auto& dirty = map.DirtyChunks();
     auto it = dirty.begin();
@@ -155,19 +179,28 @@ void VoxelRenderer::UpdateMeshes(VoxelMap& map, int budget)
         if (chunkIt != map.Chunks().end())
         {
             RebuildChunk(map, *chunkIt->second, key);
+            auto meshIt = m_meshes.find(key);
+            if (meshIt != m_meshes.end())
+                meshIt->second.rebuiltAt = now;
             --budget;
         }
         it = dirty.erase(it);
     }
 }
 
-void VoxelRenderer::Draw(const Mat4& viewProj, const Vec3& cameraPos) const
+void VoxelRenderer::Draw(const Mat4& viewProj, const Vec3& cameraPos, float fogDensity,
+                         double now, const Vec3& pulseOrigin, float effectStrength) const
 {
     m_shader.Use();
     m_shader.SetMat4("uViewProj", viewProj);
     m_shader.SetVec3("uCameraPos", cameraPos);
     m_shader.SetFloat("uWorldMinY", 0.0f);
     m_shader.SetFloat("uWorldHeight", WORLD_NY * VOXEL_SIZE);
+    m_shader.SetFloat("uFogDensity", fogDensity);
+    m_shader.SetFloat("uTime", static_cast<float>(now));
+    m_shader.SetVec3("uPulseOrigin", pulseOrigin);
+    m_shader.SetFloat("uEffects", effectStrength);
+    const GLint glowLocation = m_shader.UniformLocation("uChunkGlow");
 
     // Frustum culling: skip chunks entirely outside the view volume
     const Frustum frustum = Frustum::FromViewProj(viewProj);
@@ -180,9 +213,38 @@ void VoxelRenderer::Draw(const Mat4& viewProj, const Vec3& cameraPos) const
         Vec3 mx = mn + Vec3{chunkWorldSize, chunkWorldSize, chunkWorldSize};
         if (!frustum.IntersectsAabb(mn, mx))
             continue;
+        float glow = static_cast<float>(std::exp(-(now - mesh.rebuiltAt) / 1.5));
+        glUniform1f(glowLocation, glow);
         glBindVertexArray(mesh.vao);
         glDrawArrays(GL_TRIANGLES, 0, mesh.vertexCount);
         ++m_drawnChunks;
     }
     glBindVertexArray(0);
+}
+
+bool VoxelRenderer::ComputeBounds(Vec3& outMin, Vec3& outMax) const
+{
+    if (m_meshes.empty())
+        return false;
+    const float s = CHUNK_SIZE * VOXEL_SIZE;
+    bool first = true;
+    for (const auto& [key, mesh] : m_meshes)
+    {
+        Vec3 mn{mesh.cx * s, mesh.cy * s, mesh.cz * s};
+        Vec3 mx = mn + Vec3{s, s, s};
+        if (first)
+        {
+            outMin = mn;
+            outMax = mx;
+            first = false;
+            continue;
+        }
+        if (mn.x < outMin.x) outMin.x = mn.x;
+        if (mn.y < outMin.y) outMin.y = mn.y;
+        if (mn.z < outMin.z) outMin.z = mn.z;
+        if (mx.x > outMax.x) outMax.x = mx.x;
+        if (mx.y > outMax.y) outMax.y = mx.y;
+        if (mx.z > outMax.z) outMax.z = mx.z;
+    }
+    return true;
 }

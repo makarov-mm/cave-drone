@@ -1,7 +1,8 @@
 #include "Lidar.h"
 #include "Config.h"
 
-void Lidar::Scan(const Vec3& origin, const World& world, VoxelMap& map)
+void Lidar::Scan(const Vec3& origin, const World& world, VoxelMap& map,
+                 std::vector<Vec3>* hitSink)
 {
     std::uniform_real_distribution<float> uni(0.0f, 1.0f);
     std::normal_distribution<float> gauss(0.0f, LIDAR_NOISE_SIGMA);
@@ -40,6 +41,8 @@ void Lidar::Scan(const Vec3& origin, const World& world, VoxelMap& map)
             measured = LIDAR_RANGE; // no return: free space up to max range
         }
 
+        if (hasReturn && hitSink != nullptr)
+            hitSink->push_back(origin + dir * measured);
         IntegrateRay(origin, dir, measured, hasReturn, map);
     }
 }

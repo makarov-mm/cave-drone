@@ -3,6 +3,7 @@
 #include "World.h"
 #include "VoxelMap.h"
 #include <random>
+#include <vector>
 
 // Simulated spinning lidar with a realistic noise model:
 // - Gaussian range noise on every return
@@ -20,7 +21,10 @@ class Lidar
 public:
     explicit Lidar(uint32_t seed) : m_rng(seed) {}
 
-    void Scan(const Vec3& origin, const World& world, VoxelMap& map);
+    // hitSink, if given, receives the measured hit points of this scan
+    // (for point-cloud visualization)
+    void Scan(const Vec3& origin, const World& world, VoxelMap& map,
+              std::vector<Vec3>* hitSink = nullptr);
 
 private:
     std::mt19937 m_rng;

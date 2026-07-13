@@ -73,13 +73,16 @@
   <ItemGroup>
     <ClCompile Include="src\App.cpp" />
     <ClCompile Include="src\Drone.cpp" />
+    <ClCompile Include="src\DustRenderer.cpp" />
     <ClCompile Include="src\DroneRenderer.cpp" />
     <ClCompile Include="src\GlLoader.cpp" />
+    <ClCompile Include="src\Hud.cpp" />
     <ClCompile Include="src\Lidar.cpp" />
     <ClCompile Include="src\LineRenderer.cpp" />
     <ClCompile Include="src\Main.cpp" />
     <ClCompile Include="src\Meshing.cpp" />
     <ClCompile Include="src\Planner.cpp" />
+    <ClCompile Include="src\PointCloudRenderer.cpp" />
     <ClCompile Include="src\Shader.cpp" />
     <ClCompile Include="src\TruthRenderer.cpp" />
     <ClCompile Include="src\VoxelMap.cpp" />
@@ -92,14 +95,17 @@
     <ClInclude Include="src\Camera.h" />
     <ClInclude Include="src\Config.h" />
     <ClInclude Include="src\Drone.h" />
+    <ClInclude Include="src\DustRenderer.h" />
     <ClInclude Include="src\DroneRenderer.h" />
     <ClInclude Include="src\GlLoader.h" />
+    <ClInclude Include="src\Hud.h" />
     <ClInclude Include="src\Lidar.h" />
     <ClInclude Include="src\LineRenderer.h" />
     <ClInclude Include="src\Math.h" />
     <ClInclude Include="src\Meshing.h" />
     <ClInclude Include="src\Noise.h" />
     <ClInclude Include="src\Planner.h" />
+    <ClInclude Include="src\PointCloudRenderer.h" />
     <ClInclude Include="src\Shader.h" />
     <ClInclude Include="src\TruthRenderer.h" />
     <ClInclude Include="src\VoxelMap.h" />

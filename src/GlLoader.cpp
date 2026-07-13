@@ -23,6 +23,7 @@ void   (APIENTRY *glDeleteVertexArrays)(GLsizei, const GLuint*) = nullptr;
 void   (APIENTRY *glGenBuffers)(GLsizei, GLuint*) = nullptr;
 void   (APIENTRY *glBindBuffer)(GLenum, GLuint) = nullptr;
 void   (APIENTRY *glBufferData)(GLenum, GLsizeiptr, const void*, GLenum) = nullptr;
+void   (APIENTRY *glBufferSubData)(GLenum, GLintptr, GLsizeiptr, const void*) = nullptr;
 void   (APIENTRY *glDeleteBuffers)(GLsizei, const GLuint*) = nullptr;
 void   (APIENTRY *glEnableVertexAttribArray)(GLuint) = nullptr;
 void   (APIENTRY *glVertexAttribPointer)(GLuint, GLint, GLenum, GLboolean, GLsizei, const void*) = nullptr;
@@ -72,6 +73,7 @@ bool LoadGlFunctions()
     LOAD_GL(glGenBuffers)
     LOAD_GL(glBindBuffer)
     LOAD_GL(glBufferData)
+    LOAD_GL(glBufferSubData)
     LOAD_GL(glDeleteBuffers)
     LOAD_GL(glEnableVertexAttribArray)
     LOAD_GL(glVertexAttribPointer)

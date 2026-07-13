@@ -8,6 +8,8 @@
 #include "Drone.h"
 #include "VoxelRenderer.h"
 #include "TruthRenderer.h"
+#include "PointCloudRenderer.h"
+#include "DustRenderer.h"
 #include "LineRenderer.h"
 #include "DroneRenderer.h"
 #include <vector>
@@ -42,15 +44,28 @@ private:
     std::vector<AgentState> m_agents;
     VoxelRenderer m_voxelRenderer;
     TruthRenderer m_truthRenderer;
+    PointCloudRenderer m_pointCloud;
+    DustRenderer m_dust;
     LineRenderer m_lineRenderer;
     DroneRenderer m_droneRenderer;
+    std::vector<Vec3> m_hitBuffer;
 
     double m_trailTimer = 0.0;
     double m_titleTimer = 0.0;
+    // Rotating overview inset
+    bool m_showOverview = true;
+    float m_overviewYaw = 0.0f;
+    Vec3 m_overviewCenter;
+    float m_overviewDist = 30.0f;
+    bool m_overviewInit = false;
+    float m_frameDt = 0.016f;
     uint32_t m_seed = 1u;
     int m_focus = 0;
     bool m_paused = false;
     bool m_splitView = true;
+    bool m_showHud = true;
+    int m_mapStyle = 0; // 0 voxels, 1 point cloud, 2 both
+    double m_time = 0.0;
 
     enum class Phase { Exploring, Returning, Home };
     Phase m_phase = Phase::Exploring;
@@ -65,5 +80,6 @@ private:
     void Render();
     void RenderMapPane(int x, int y, int w, int h);
     void RenderFpvPane(int x, int y, int w, int h);
+    void RenderOverviewPane(int x, int y, int w, int h);
     void UpdateTitle(double fps);
 };

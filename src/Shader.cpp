@@ -58,6 +58,11 @@ void Shader::Use() const
     glUseProgram(m_program);
 }
 
+GLint Shader::UniformLocation(const char* name) const
+{
+    return glGetUniformLocation(m_program, name);
+}
+
 void Shader::SetMat4(const char* name, const Mat4& value) const
 {
     glUniformMatrix4fv(glGetUniformLocation(m_program, name), 1, GL_FALSE, value.m);

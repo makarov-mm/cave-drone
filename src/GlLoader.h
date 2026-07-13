@@ -16,6 +16,7 @@ typedef ptrdiff_t GLintptr;
 #define GL_COMPILE_STATUS    0x8B81
 #define GL_LINK_STATUS       0x8B82
 #define GL_INFO_LOG_LENGTH   0x8B84
+#define GL_PROGRAM_POINT_SIZE 0x8642
 
 extern GLuint (APIENTRY *glCreateShader)(GLenum type);
 extern void   (APIENTRY *glShaderSource)(GLuint shader, GLsizei count, const GLchar* const* strings, const GLint* lengths);
@@ -40,6 +41,7 @@ extern void   (APIENTRY *glDeleteVertexArrays)(GLsizei n, const GLuint* arrays);
 extern void   (APIENTRY *glGenBuffers)(GLsizei n, GLuint* buffers);
 extern void   (APIENTRY *glBindBuffer)(GLenum target, GLuint buffer);
 extern void   (APIENTRY *glBufferData)(GLenum target, GLsizeiptr size, const void* data, GLenum usage);
+extern void   (APIENTRY *glBufferSubData)(GLenum target, GLintptr offset, GLsizeiptr size, const void* data);
 extern void   (APIENTRY *glDeleteBuffers)(GLsizei n, const GLuint* buffers);
 extern void   (APIENTRY *glEnableVertexAttribArray)(GLuint index);
 extern void   (APIENTRY *glVertexAttribPointer)(GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void* pointer);

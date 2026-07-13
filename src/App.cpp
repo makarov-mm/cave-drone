@@ -1,5 +1,6 @@
 #include "App.h"
 #include "Config.h"
+#include "Hud.h"
 #include <cstdio>
 #include <cmath>
 
@@ -25,6 +26,7 @@ bool App::Init()
     glClearColor(0.01f, 0.02f, 0.01f, 1.0f);
 
     if (!m_voxelRenderer.Init() || !m_truthRenderer.Init() ||
+        !m_pointCloud.Init() || !m_dust.Init() ||
         !m_lineRenderer.Init() || !m_droneRenderer.Init())
         return false;
 
@@ -39,6 +41,7 @@ void App::ResetSimulation(uint32_t seed)
     m_truthRenderer.Build(m_world);
     m_map.Clear();
     m_voxelRenderer.Shutdown();
+    m_pointCloud.Clear();
 
     // Spawn the fleet in a ring inside the start chamber
     m_agents.clear();
@@ -155,12 +158,16 @@ void App::UpdateAgentReturning(AgentState& agent, double dt)
 
 void App::UpdateSimulation(double dt)
 {
-    // Sense: every agent integrates noisy evidence into the shared map
+    // Sense: every agent integrates noisy evidence into the shared map;
+    // measured hit points also feed the point-cloud visualization
+    m_hitBuffer.clear();
     for (AgentState& agent : m_agents)
     {
-        agent.lidar.Scan(agent.drone.Position(), m_world, m_map);
+        agent.lidar.Scan(agent.drone.Position(), m_world, m_map, &m_hitBuffer);
         agent.planner.Advance(dt);
     }
+    if (m_mapStyle != 0)
+        m_pointCloud.AddPoints(m_hitBuffer);
 
     // Plan
     if (m_phase == Phase::Exploring)
@@ -239,6 +246,16 @@ void App::HandleInput(double dt)
         m_camera.ToggleMode();
     if (input.keysPressed['V'])
         m_splitView = !m_splitView;
+    if (input.keysPressed['M'])
+        m_showOverview = !m_showOverview;
+    if (input.keysPressed['H'])
+        m_showHud = !m_showHud;
+    if (input.keysPressed['G'])
+    {
+        m_mapStyle = (m_mapStyle + 1) % 3;
+        if (m_mapStyle == 0)
+            m_pointCloud.Clear(); // restart accumulation next time
+    }
     for (int i = 0; i < DRONE_COUNT && i < 9; ++i)
         if (input.keysPressed['1' + i])
             m_focus = i;
@@ -266,6 +283,77 @@ void App::Render()
     {
         RenderMapPane(0, 0, w, h);
     }
+
+    if (m_showOverview)
+    {
+        // Rotating whole-map overview inset in the bottom-right corner
+        int size = static_cast<int>((w < h ? w : h) * 0.30f);
+        if (size > 80)
+            RenderOverviewPane(w - size - 12, 12, size, size);
+    }
+}
+
+void App::RenderOverviewPane(int x, int y, int w, int h)
+{
+    Vec3 mn, mx;
+    if (!m_voxelRenderer.ComputeBounds(mn, mx))
+        return;
+
+    // Fit the whole explored region; smooth center and distance so the
+    // inset does not jump when new chunks appear at the edges
+    const float fov = 0.9f;
+    Vec3 center = (mn + mx) * 0.5f;
+    float dist = (0.5f * Length(mx - mn) + 4.0f) / std::tan(fov * 0.5f);
+    if (!m_overviewInit)
+    {
+        m_overviewCenter = center;
+        m_overviewDist = dist;
+        m_overviewInit = true;
+    }
+    float blend = 1.0f - std::exp(-2.0f * m_frameDt);
+    m_overviewCenter = Lerp(m_overviewCenter, center, blend);
+    m_overviewDist += (dist - m_overviewDist) * blend;
+
+    const float pitch = 0.62f;
+    Vec3 dir{
+        std::cos(pitch) * std::sin(m_overviewYaw),
+        std::sin(pitch),
+        std::cos(pitch) * std::cos(m_overviewYaw)};
+    Vec3 eye = m_overviewCenter + dir * m_overviewDist;
+
+    // Framed inset: clear a slightly larger rect as the border, then the
+    // pane itself (color and depth) inside it
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(x - 2, y - 2, w + 4, h + 4);
+    glClearColor(0.20f, 0.45f, 0.25f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glScissor(x, y, w, h);
+    glClearColor(0.004f, 0.010f, 0.006f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glDisable(GL_SCISSOR_TEST);
+    glClearColor(0.01f, 0.02f, 0.01f, 1.0f);
+
+    glViewport(x, y, w, h);
+    Mat4 proj = Mat4::Perspective(fov, static_cast<float>(w) / static_cast<float>(h), 0.5f, 500.0f);
+    Mat4 viewProj = proj * Mat4::LookAt(eye, m_overviewCenter, Vec3{0.0f, 1.0f, 0.0f});
+
+    // Nearly no fog and subtler effects: the overview camera is far away
+    m_voxelRenderer.Draw(viewProj, eye, 0.003f, m_time,
+                         m_agents[m_focus].drone.Position(), 0.5f);
+    if (m_mapStyle != 0)
+        m_pointCloud.Draw(viewProj, eye);
+
+    // Drone beacons: vertical lines in agent colors, readable at any zoom
+    m_lineRenderer.Begin();
+    for (size_t i = 0; i < m_agents.size(); ++i)
+    {
+        const Vec3 p = m_agents[i].drone.Position();
+        m_lineRenderer.AddLine(p, p + Vec3{0.0f, 4.0f, 0.0f}, kTrailColors[i % kColorCount]);
+    }
+    m_lineRenderer.Draw(viewProj);
+
+    for (const AgentState& agent : m_agents)
+        m_droneRenderer.Draw(viewProj, agent.drone);
 }
 
 void App::RenderMapPane(int x, int y, int w, int h)
@@ -274,7 +362,11 @@ void App::RenderMapPane(int x, int y, int w, int h)
     Mat4 proj = Mat4::Perspective(1.05f, static_cast<float>(w) / static_cast<float>(h), 0.1f, 300.0f);
     Mat4 viewProj = proj * m_camera.View();
 
-    m_voxelRenderer.Draw(viewProj, m_camera.Eye());
+    const Vec3 pulseOrigin = m_agents[m_focus].drone.Position();
+    if (m_mapStyle != 1)
+        m_voxelRenderer.Draw(viewProj, m_camera.Eye(), 0.030f, m_time, pulseOrigin, 1.0f);
+    if (m_mapStyle != 0)
+        m_pointCloud.Draw(viewProj, m_camera.Eye());
 
     m_lineRenderer.Begin();
     for (size_t i = 0; i < m_agents.size(); ++i)
@@ -316,13 +408,32 @@ void App::RenderFpvPane(int x, int y, int w, int h)
     Mat4 proj = Mat4::Perspective(1.35f, static_cast<float>(w) / static_cast<float>(h), 0.05f, 120.0f);
     Mat4 view = Mat4::LookAt(eye, eye + forward, up);
 
-    m_truthRenderer.Draw(proj * view, focused.Position());
+    Mat4 viewProj = proj * view;
+    m_truthRenderer.Draw(viewProj, focused.Position());
 
     // Other fleet members are physically present in the cave, so the
     // onboard camera sees them when they cross its view
     for (size_t i = 0; i < m_agents.size(); ++i)
         if (static_cast<int>(i) != m_focus)
-            m_droneRenderer.Draw(proj * view, m_agents[i].drone);
+            m_droneRenderer.Draw(viewProj, m_agents[i].drone);
+
+    // Dust motes drifting through the headlight beam
+    m_dust.Draw(viewProj, focused.Position());
+
+    // Screen-space HUD over the camera picture
+    if (m_showHud)
+    {
+        glDisable(GL_DEPTH_TEST);
+        const char* status = "EXPLORING";
+        if (m_phase == Phase::Returning) status = "RETURN TO HOME";
+        else if (m_phase == Phase::Home) status = "MISSION COMPLETE";
+        if (m_paused) status = "PAUSED";
+        m_lineRenderer.Begin();
+        Hud::Draw(m_lineRenderer, w, h, focused, m_focus, status);
+        Mat4 ortho = Mat4::Ortho(0.0f, static_cast<float>(w), 0.0f, static_cast<float>(h), -1.0f, 1.0f);
+        m_lineRenderer.Draw(ortho);
+        glEnable(GL_DEPTH_TEST);
+    }
 }
 
 void App::UpdateTitle(double fps)
@@ -334,7 +445,7 @@ void App::UpdateTitle(double fps)
     if (m_paused) status = "paused";
     const char* camMode = m_camera.GetMode() == Camera::Mode::Chase ? "chase" : "orbit";
     _snprintf_s(title, _TRUNCATE,
-        "CaveDroneSim | %s | %d drones, fpv %d | cam %s | free %d occ %d | chunks %d/%d | %.0f fps | 1-%d focus, V split, C camera, Space pause, R new world",
+        "CaveDroneSim | %s | %d drones, fpv %d | cam %s | free %d occ %d | chunks %d/%d | %.0f fps | 1-%d focus, G map style, H hud, M overview, V split, C camera, Space, R",
         status, DRONE_COUNT, m_focus + 1, camMode,
         m_map.FreeCount(), m_map.OccupiedCount(),
         m_voxelRenderer.DrawnChunkCount(), m_voxelRenderer.MeshedChunkCount(),
@@ -356,12 +467,18 @@ int App::Run()
         if (dt > 0.1) dt = 0.1;
 
         HandleInput(dt);
+        m_frameDt = static_cast<float>(dt);
+        m_time += dt;
+        m_overviewYaw += static_cast<float>(dt) * 0.15f; // slow spin, runs even when paused
+        if (m_overviewYaw > 6.2831853f)
+            m_overviewYaw -= 6.2831853f;
         if (!m_paused)
             UpdateSimulation(dt);
 
-        m_voxelRenderer.UpdateMeshes(m_map, MESH_REBUILDS_PER_FRAME);
+        m_voxelRenderer.UpdateMeshes(m_map, MESH_REBUILDS_PER_FRAME, m_time);
         const Drone& focused = m_agents[m_focus].drone;
         m_camera.Update(static_cast<float>(dt), focused.Position(), focused.Velocity(), m_map);
+        m_dust.Update(static_cast<float>(dt), focused.Position());
 
         Render();
         m_window.SwapBuffers();

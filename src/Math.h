@@ -70,6 +70,18 @@ struct Mat4
         return r;
     }
 
+    static Mat4 Ortho(float left, float right, float bottom, float top, float zNear, float zFar)
+    {
+        Mat4 r = Identity();
+        r.m[0] = 2.0f / (right - left);
+        r.m[5] = 2.0f / (top - bottom);
+        r.m[10] = -2.0f / (zFar - zNear);
+        r.m[12] = -(right + left) / (right - left);
+        r.m[13] = -(top + bottom) / (top - bottom);
+        r.m[14] = -(zFar + zNear) / (zFar - zNear);
+        return r;
+    }
+
     static Mat4 Translation(const Vec3& t)
     {
         Mat4 r = Identity();

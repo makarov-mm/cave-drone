@@ -84,7 +84,7 @@ void main()
 )GLSL";
 }
 
-bool VoxelRenderer::Init()
+std::expected<void, std::string> VoxelRenderer::Init()
 {
     return m_shader.Build(kVertexSrc, kFragmentSrc);
 }

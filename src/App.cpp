@@ -1,8 +1,10 @@
 #include "App.h"
 #include "Config.h"
 #include "Hud.h"
-#include <cstdio>
+#include <chrono>
 #include <cmath>
+#include <format>
+#include <numbers>
 
 namespace
 {
@@ -16,22 +18,28 @@ namespace
     constexpr int kColorCount = 5;
 }
 
-bool App::Init()
+std::expected<void, std::string> App::Init()
 {
-    if (!m_window.Create("CaveDroneSim", 1440, 900))
-        return false;
+    if (auto created = m_window.Create("CaveDroneSim", 1440, 900); !created)
+        return created;
 
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);
     glClearColor(0.01f, 0.02f, 0.01f, 1.0f);
 
-    if (!m_voxelRenderer.Init() || !m_truthRenderer.Init() ||
-        !m_pointCloud.Init() || !m_dust.Init() ||
-        !m_lineRenderer.Init() || !m_droneRenderer.Init())
-        return false;
+    const std::pair<const char*, std::expected<void, std::string>> results[] = {
+        {"voxel renderer", m_voxelRenderer.Init()},
+        {"truth renderer", m_truthRenderer.Init()},
+        {"point cloud renderer", m_pointCloud.Init()},
+        {"dust renderer", m_dust.Init()},
+        {"line renderer", m_lineRenderer.Init()},
+        {"drone renderer", m_droneRenderer.Init()}};
+    for (const auto& [name, result] : results)
+        if (!result)
+            return std::unexpected(std::format("{}: {}", name, result.error()));
 
     ResetSimulation(m_seed);
-    return true;
+    return {};
 }
 
 void App::ResetSimulation(uint32_t seed)
@@ -50,7 +58,7 @@ void App::ResetSimulation(uint32_t seed)
     for (int i = 0; i < DRONE_COUNT; ++i)
     {
         AgentState& agent = m_agents[i];
-        float angle = 6.2831853f * static_cast<float>(i) / DRONE_COUNT;
+        float angle = 2.0f * std::numbers::pi_v<float> * static_cast<float>(i) / DRONE_COUNT;
         agent.home = center + Vec3{std::cos(angle) * 1.5f, 0.0f, std::sin(angle) * 1.5f};
         agent.drone.Reset(agent.home);
         agent.lidar = Lidar(seed * 31u + static_cast<uint32_t>(i) * 977u + 12345u);
@@ -91,8 +99,8 @@ Vec3 App::SeparationFor(const AgentState& agent) const
         push += delta * (SEPARATION_GAIN * (SEPARATION_DIST - d) / (SEPARATION_DIST * d));
     }
     float len = Length(push);
-    if (len > DRONE_CRUISE_SPEED)
-        push *= DRONE_CRUISE_SPEED / len;
+    if (len > SEPARATION_MAX)
+        push *= SEPARATION_MAX / len;
     return push;
 }
 
@@ -121,7 +129,7 @@ void App::UpdateAgentExploring(AgentState& agent, double dt)
         Length(agent.path.back() - agent.drone.Position()) < 1.0f &&
         agent.drone.Speed() < 0.4f;
     agent.stuckTimer = atGoal ? agent.stuckTimer + dt : 0.0;
-    if (agent.stuckTimer > 1.5)
+    if (agent.stuckTimer > 1.5 || (agent.drone.ReflexSaturated() && !agent.path.empty()))
     {
         agent.planner.BlacklistGoal(agent.path.empty() ? agent.drone.Position()
                                                        : agent.path.back());
@@ -143,16 +151,39 @@ void App::UpdateAgentReturning(AgentState& agent, double dt)
         return;
     }
 
-    agent.replanTimer -= dt;
-    bool pathBlocked = !agent.path.empty() &&
-        !agent.planner.PathStillValid(m_map, agent.path, agent.drone.PathProgress());
-    if (agent.replanTimer <= 0.0 || pathBlocked || agent.path.empty())
+    // Route commitment: noisy classification makes a pinch point flicker
+    // between passable and blocked, and replanning on every flicker made
+    // the drone thrash between the direct route and a detour for minutes.
+    // The chord gate and reflex layer already prevent flying into anything
+    // the map marks non-free, so a stale path is safe to keep following.
+    // Replan only when there is no path, or when progress toward the path
+    // end has genuinely stalled.
+    if (!agent.path.empty())
     {
-        if (agent.planner.PlanToPoint(m_map, agent.drone.Position(), agent.home, agent.path))
+        float distToEnd = Length(agent.path.back() - agent.drone.Position());
+        if (distToEnd < agent.bestDistToEnd - 0.3f)
+        {
+            agent.bestDistToEnd = distToEnd;
+            agent.stallTimer = 0.0;
+        }
+        else
+        {
+            agent.stallTimer += dt;
+        }
+    }
+
+    agent.replanTimer -= dt;
+    bool stalled = !agent.path.empty() && agent.stallTimer > 4.0;
+    if (agent.path.empty() ? agent.replanTimer <= 0.0 : stalled)
+    {
+        if (agent.planner.PlanToPoint(m_map, agent.drone.Position(), agent.home,
+                                      agent.path, agent.relaxedPath))
             agent.drone.ResetPathProgress();
         else
             agent.path.clear(); // hold position, retry next interval
         agent.replanTimer = REPLAN_INTERVAL * 2.0;
+        agent.stallTimer = 0.0;
+        agent.bestDistToEnd = 1e9f;
     }
 }
 
@@ -185,6 +216,8 @@ void App::UpdateSimulation(double dt)
             {
                 agent.path.clear();
                 agent.replanTimer = 0.0;
+                agent.stallTimer = 0.0;
+                agent.bestDistToEnd = 1e9f;
             }
         }
     }
@@ -200,16 +233,23 @@ void App::UpdateSimulation(double dt)
             m_phase = Phase::Home;
     }
 
-    // Act: fixed-substep physics per agent, with mutual separation
+    // Act: fixed-substep physics per agent, with mutual separation and a
+    // pursuit chord bounded by the observed map
     for (AgentState& agent : m_agents)
     {
         Vec3 separation = SeparationFor(agent);
+        const Drone::ChordClear chordClear =
+            [this](const Vec3& a2, const Vec3& b2)
+            { return Planner::ChordIsFree(m_map, a2, b2); };
+        const Drone::ProbeClear probeClear =
+            [this](const Vec3& from, const Vec3& dir, float dist)
+            { return Planner::ProbeIsFree(m_map, from, dir, dist); };
         const float subStep = 1.0f / 240.0f;
         float remaining = static_cast<float>(dt);
         while (remaining > 0.0f)
         {
             float step = remaining > subStep ? subStep : remaining;
-            agent.drone.Update(step, agent.path, separation);
+            agent.drone.Update(step, agent.path, separation, chordClear, probeClear);
             remaining -= step;
         }
     }
@@ -438,31 +478,30 @@ void App::RenderFpvPane(int x, int y, int w, int h)
 
 void App::UpdateTitle(double fps)
 {
-    char title[352];
     const char* status = "exploring";
     if (m_phase == Phase::Returning) status = "returning home";
     else if (m_phase == Phase::Home) status = "mission complete";
     if (m_paused) status = "paused";
     const char* camMode = m_camera.GetMode() == Camera::Mode::Chase ? "chase" : "orbit";
-    _snprintf_s(title, _TRUNCATE,
-        "CaveDroneSim | %s | %d drones, fpv %d | cam %s | free %d occ %d | chunks %d/%d | %.0f fps | 1-%d focus, G map style, H hud, M overview, V split, C camera, Space, R",
+    const std::string title = std::format(
+        "CaveDroneSim | {} | {} drones, fpv {} | cam {} | free {} occ {} | chunks {}/{} | "
+        "{:.0f} fps | 1-{} focus, G map style, H hud, M overview, V split, C camera, Space, R",
         status, DRONE_COUNT, m_focus + 1, camMode,
         m_map.FreeCount(), m_map.OccupiedCount(),
         m_voxelRenderer.DrawnChunkCount(), m_voxelRenderer.MeshedChunkCount(),
         fps, DRONE_COUNT);
-    m_window.SetTitle(title);
+    m_window.SetTitle(title.c_str());
 }
 
 int App::Run()
 {
-    LARGE_INTEGER freq, prev, now;
-    QueryPerformanceFrequency(&freq);
-    QueryPerformanceCounter(&prev);
+    using Clock = std::chrono::steady_clock;
+    Clock::time_point prev = Clock::now();
 
     while (m_window.PumpMessages())
     {
-        QueryPerformanceCounter(&now);
-        double dt = static_cast<double>(now.QuadPart - prev.QuadPart) / static_cast<double>(freq.QuadPart);
+        const Clock::time_point now = Clock::now();
+        double dt = std::chrono::duration<double>(now - prev).count();
         prev = now;
         if (dt > 0.1) dt = 0.1;
 
@@ -470,8 +509,8 @@ int App::Run()
         m_frameDt = static_cast<float>(dt);
         m_time += dt;
         m_overviewYaw += static_cast<float>(dt) * 0.15f; // slow spin, runs even when paused
-        if (m_overviewYaw > 6.2831853f)
-            m_overviewYaw -= 6.2831853f;
+        if (m_overviewYaw > 2.0f * std::numbers::pi_v<float>)
+            m_overviewYaw -= 2.0f * std::numbers::pi_v<float>;
         if (!m_paused)
             UpdateSimulation(dt);
 

@@ -1,5 +1,6 @@
 #include "Window.h"
 #include "GlLoader.h"
+#include <algorithm>
 #include <windowsx.h>
 
 #define WGL_CONTEXT_MAJOR_VERSION_ARB 0x2091
@@ -89,7 +90,7 @@ LRESULT Window::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     }
 }
 
-bool Window::Create(const char* title, int width, int height)
+std::expected<void, std::string> Window::Create(const char* title, int width, int height)
 {
     m_width = width;
     m_height = height;
@@ -101,7 +102,7 @@ bool Window::Create(const char* title, int width, int height)
     wc.hCursor = LoadCursorA(nullptr, reinterpret_cast<LPCSTR>(IDC_ARROW));
     wc.lpszClassName = "CaveDroneSimWindow";
     if (RegisterClassA(&wc) == 0)
-        return false;
+        return std::unexpected("RegisterClass failed");
 
     RECT rect = {0, 0, width, height};
     AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
@@ -112,10 +113,14 @@ bool Window::Create(const char* title, int width, int height)
         rect.right - rect.left, rect.bottom - rect.top,
         nullptr, nullptr, wc.hInstance, this);
     if (m_hwnd == nullptr)
-        return false;
+        return std::unexpected("CreateWindow failed");
 
     m_hdc = GetDC(m_hwnd);
-    return CreateGlContext();
+    if (!CreateGlContext())
+        return std::unexpected("OpenGL 3.3 context creation failed");
+    if (auto loaded = LoadGlFunctions(); !loaded)
+        return std::unexpected(loaded.error());
+    return {};
 }
 
 bool Window::CreateGlContext()
@@ -171,7 +176,7 @@ bool Window::CreateGlContext()
     if (wglSwapIntervalEXT != nullptr)
         wglSwapIntervalEXT(1);
 
-    return LoadGlFunctions();
+    return true;
 }
 
 bool Window::PumpMessages()
@@ -202,6 +207,5 @@ void Window::EndFrameInput()
     m_input.mouseDeltaX = 0;
     m_input.mouseDeltaY = 0;
     m_input.wheelDelta = 0;
-    for (bool& pressed : m_input.keysPressed)
-        pressed = false;
+    std::ranges::fill(m_input.keysPressed, false);
 }

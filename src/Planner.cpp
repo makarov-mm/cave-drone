@@ -1,5 +1,6 @@
 #include "Planner.h"
 #include "Config.h"
+#include "VoxelDda.h"
 #include <queue>
 #include <unordered_map>
 #include <algorithm>
@@ -44,15 +45,24 @@ bool Planner::IsGoal(const VoxelMap& map, int x, int y, int z)
     return map.IsExplorationFrontier(x, y, z);
 }
 
-bool Planner::FindNearestSafe(const VoxelMap& map, int& x, int& y, int& z) const
+bool Planner::FindNearestSafe(const VoxelMap& map, int& x, int& y, int& z,
+                              const Vec3* chordFrom) const
 {
-    if (map.IsSafe(x, y, z))
+    auto acceptable = [&map, chordFrom](int cx, int cy, int cz)
+    {
+        if (!map.IsSafe(cx, cy, cz))
+            return false;
+        return chordFrom == nullptr ||
+               ChordIsFree(map, *chordFrom, CellCenter(cx, cy, cz));
+    };
+
+    if (acceptable(x, y, z))
         return true;
     for (int r = 1; r <= 5; ++r)
         for (int dy = -r; dy <= r; ++dy)
             for (int dz = -r; dz <= r; ++dz)
                 for (int dx = -r; dx <= r; ++dx)
-                    if (map.IsSafe(x + dx, y + dy, z + dz))
+                    if (acceptable(x + dx, y + dy, z + dz))
                     {
                         x += dx; y += dy; z += dz;
                         return true;
@@ -60,17 +70,25 @@ bool Planner::FindNearestSafe(const VoxelMap& map, int& x, int& y, int& z) const
     return false;
 }
 
-template <typename GoalPredicate>
+template <std::predicate<int, int, int> GoalPredicate>
 bool Planner::Bfs(const VoxelMap& map, const Vec3& startWorld, GoalPredicate&& isGoal,
-                  std::vector<Vec3>& outPath, bool& exhausted)
+                  std::vector<Vec3>& outPath, bool& exhausted, bool relaxed)
 {
     outPath.clear();
     exhausted = false;
 
+    auto traversable = [&map, relaxed](int x, int y, int z)
+    {
+        return relaxed ? map.IsFree(x, y, z) : map.IsSafe(x, y, z);
+    };
+
     int sx, sy, sz;
     WorldToCell(startWorld, sx, sy, sz);
-    if (!FindNearestSafe(map, sx, sy, sz))
-        return false;
+    if (!FindNearestSafe(map, sx, sy, sz, &startWorld))
+    {
+        if (!relaxed || !map.IsFree(sx, sy, sz))
+            return false;
+    }
 
     std::queue<uint64_t> frontier;
     std::unordered_map<uint64_t, uint64_t> parent;
@@ -103,7 +121,7 @@ bool Planner::Bfs(const VoxelMap& map, const Vec3& startWorld, GoalPredicate&& i
         for (const int* d : kDirs)
         {
             int nx = x + d[0], ny = y + d[1], nz = z + d[2];
-            if (!map.IsSafe(nx, ny, nz))
+            if (!traversable(nx, ny, nz))
                 continue;
             uint64_t nkey = VoxelMap::PackKey(nx, ny, nz);
             if (parent.find(nkey) != parent.end())
@@ -132,10 +150,17 @@ bool Planner::Bfs(const VoxelMap& map, const Vec3& startWorld, GoalPredicate&& i
             break;
         key = p;
     }
-    std::reverse(path.begin(), path.end());
-    path.front() = startWorld;
+    std::ranges::reverse(path);
+    // Keep the snapped cell center as the first waypoint: the chord from
+    // the drone to it is validated by FindNearestSafe, and overwriting it
+    // with the drone position can create a first leg that clips geometry
+    if (Length(startWorld - path.front()) > 0.05f)
+        path.insert(path.begin(), startWorld);
+    else
+        path.front() = startWorld;
 
-    Smooth(map, path);
+    if (!relaxed)
+        Smooth(map, path); // relaxed corridors fail the strict shortcut test
     outPath = std::move(path);
     return true;
 }
@@ -192,21 +217,45 @@ bool Planner::Replan(const VoxelMap& map, const Vec3& startWorld, std::vector<Ve
 }
 
 bool Planner::PlanToPoint(const VoxelMap& map, const Vec3& startWorld,
-                          const Vec3& goalWorld, std::vector<Vec3>& outPath)
+                          const Vec3& goalWorld, std::vector<Vec3>& outPath,
+                          bool& relaxedUsed)
 {
+    relaxedUsed = false;
+
     int gx, gy, gz;
     WorldToCell(goalWorld, gx, gy, gz);
-    if (!FindNearestSafe(map, gx, gy, gz))
+    if (!FindNearestSafe(map, gx, gy, gz, &goalWorld))
         return false;
 
+    auto atGoal = [gx, gy, gz](int x, int y, int z)
+    { return x == gx && y == gy && z == gz; };
+
+    // The chord from the snapped goal cell back to the true goal point is
+    // validated by FindNearestSafe, so the final approach leg is flyable
+    auto appendGoal = [&outPath, &goalWorld]()
+    {
+        if (Length(goalWorld - outPath.back()) > 0.05f)
+            outPath.push_back(goalWorld);
+    };
+
     bool exhausted = false;
-    bool found = Bfs(map, startWorld,
-                     [gx, gy, gz](int x, int y, int z)
-                     { return x == gx && y == gy && z == gz; },
-                     outPath, exhausted);
-    if (found)
-        outPath.back() = goalWorld;
-    return found;
+    if (Bfs(map, startWorld, atGoal, outPath, exhausted))
+    {
+        appendGoal();
+        return true;
+    }
+    if (!exhausted)
+        return false; // expansion budget hit, retry later
+
+    // Safe space does not connect to the goal: degraded tier through free
+    // cells, guarded at flight time by the chord gate and reflex brake
+    if (Bfs(map, startWorld, atGoal, outPath, exhausted, true))
+    {
+        appendGoal();
+        relaxedUsed = true;
+        return true;
+    }
+    return false;
 }
 
 void Planner::Advance(double dt)
@@ -241,6 +290,37 @@ bool Planner::IsBlacklisted(const Vec3& p) const
             return true;
     }
     return false;
+}
+
+bool Planner::ChordIsFree(const VoxelMap& map, const Vec3& a, const Vec3& b)
+{
+    Vec3 delta = b - a;
+    float dist = Length(delta);
+    if (dist < 1e-4f)
+        return true;
+    Vec3 dir = delta * (1.0f / dist);
+
+    // Exact DDA enumeration: point sampling can step over a corner cell
+    // that a diagonal segment clips with a short chord, which is precisely
+    // the geometry that causes wall grazing. The first cell (the drone's
+    // own) is skipped so its transient classification cannot veto progress.
+    VoxelDda dda(a, dir);
+    dda.Step();
+    for (; dda.EnterT() <= dist; dda.Step())
+        if (!map.IsFree(dda.X(), dda.Y(), dda.Z()))
+            return false;
+    return true;
+}
+
+bool Planner::ProbeIsFree(const VoxelMap& map, const Vec3& from,
+                          const Vec3& dir, float dist)
+{
+    VoxelDda dda(from, dir);
+    dda.Step(); // own cell: transient classification must not self-veto
+    for (; dda.EnterT() <= dist; dda.Step())
+        if (map.Get(dda.X(), dda.Y(), dda.Z()) == CellState::Occupied)
+            return false;
+    return true;
 }
 
 bool Planner::LineOfSight(const VoxelMap& map, const Vec3& a, const Vec3& b) const
@@ -293,13 +373,18 @@ bool Planner::GoalStillWorthwhile(const VoxelMap& map, const Vec3& goalWorld) co
     return IsGoal(map, x, y, z) && !IsBlacklisted(goalWorld);
 }
 
-bool Planner::PathStillValid(const VoxelMap& map, const std::vector<Vec3>& path, size_t fromIndex) const
+bool Planner::PathStillValid(const VoxelMap& map, const std::vector<Vec3>& path,
+                             size_t fromIndex, bool relaxed) const
 {
     if (path.empty())
         return false;
     size_t end = std::min(path.size() - 1, fromIndex + 4);
     for (size_t i = fromIndex; i < end; ++i)
-        if (!LineOfSight(map, path[i], path[i + 1]))
+    {
+        bool ok = relaxed ? ChordIsFree(map, path[i], path[i + 1])
+                          : LineOfSight(map, path[i], path[i + 1]);
+        if (!ok)
             return false;
+    }
     return true;
 }

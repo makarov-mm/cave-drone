@@ -2,7 +2,20 @@
 
 Autonomous cave exploration drone fleet in C++ / WinAPI / OpenGL 3.3, zero external dependencies.
 
+[![GitHub Sponsors](https://img.shields.io/github/sponsors/makarov-mm?style=flat&logo=github)](https://github.com/sponsors/makarov-mm)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![C++26](https://img.shields.io/badge/dialect-C%2B%2B26-blue)](https://en.cppreference.com/w/cpp/26)
+![OpenGL](https://img.shields.io/badge/OpenGL-5586A4?logo=opengl&logoColor=white)
+![Windows](https://img.shields.io/badge/Windows-0078D6?logo=windows&logoColor=white)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-0A66C2?logo=linkedin&logoColor=white)](https://www.linkedin.com/in/makarov-mm/)
+[![Threads](https://img.shields.io/badge/Threads-000000?logo=threads&logoColor=white)](https://www.threads.net/@m.m.makarov)
+[![Instagram](https://img.shields.io/badge/Instagram-E4405F?logo=instagram&logoColor=white)](https://www.instagram.com/m.m.makarov/)
+
 A fleet of simulated quadrotors wakes up in a procedurally generated cave system with no prior map. A spinning lidar reveals the world into a sparse voxel occupancy map, a frontier-based planner repeatedly picks the nearest boundary between known and unknown space, and the flight controller banks the drone through the tunnels toward it. What you see on screen is only what the drone has discovered so far, rendered as a green voxel point-cloud in the style of industrial inspection drones (Exyn, Flyability).
+
+## Screenshot
+
+![Screenshot](screenshot.png)
 
 ## Architecture
 
@@ -30,6 +43,22 @@ With three drones, coverage after four minutes is 1.5x to 4.8x that of a single 
 - **Rendering** (`VoxelRenderer`): one interleaved VBO per chunk, greedy meshing (`Meshing`) merges coplanar visible faces into maximal rectangles, only dirty chunks rebuilt (budgeted per frame). Flat surfaces collapse up to 256x; the organic cave surface compresses about 2.3x, halving vertex memory. The uv of a merged quad spans the rectangle in voxel units and the fragment shaders use fract(uv), so the per-voxel grid survives merging. The shader draws grid edges, a height-based green palette and exponential fog into the cave darkness. The ground-truth FPV mesh goes through the same greedy mesher.
 
 Safety clearance for planning requires the full 26-neighborhood of a cell to be known free, which keeps the path centerline a full voxel away from any wall and absorbs controller overshoot.
+
+## Robustness layers
+
+Flying through a noisy probabilistic map needs more than a planner. The control stack is layered, and every layer below was added because a specific failure showed up in trajectory stress testing:
+
+- **Pursuit chord gate**: the follower only advances its pursuit point while the straight chord from the drone to it passes through known-free cells (exact DDA enumeration, not sampling). Stops corner cutting across walls the map already knows about.
+- **Reflex layer**: any motion aimed at a known-occupied cell within a probe distance commands a gentle retreat, not a stop; alternating accelerate/stop ratchets a hovering drone into a wall a millimeter per cycle. Works at hover-drift speeds via a minimum probe length.
+- **Latched station keeping**: when the chord gate pins the pursuit point, the drone anchors to a captured position with real stiffness; commanding velocity toward a point that coincides with the drone gives zero stiffness and millimeter drift integrates into the floor over minutes.
+- **Careful mode**: sustained reflex firing shrinks lookahead and speed for a few seconds so the drone crawls the polyline exactly through geometry it cannot round at cruise settings.
+- **Route commitment on return**: a noise-flickering pinch point otherwise makes the drone thrash between the direct route and a detour for minutes; the chord gate makes following a stale path safe, so replanning happens only when progress toward the path end genuinely stalls.
+- **Chord-validated snapping**: when the planner snaps the start or goal to the nearest safe cell, the chosen cell must be reachable by a straight free chord, otherwise the first or last path leg clips a wall corner and deadlocks the follower.
+- **Degraded return tier**: noise-frozen cells can sever full-clearance connectivity in corridors nobody will rescan; if the safe graph does not reach home, the return path is planned through merely-free cells, guarded at flight time by the layers above.
+
+## Modern C++
+
+The code targets the latest language standard the toolchains provide: `/std:c++latest` under MSVC (v145) and `-std=c++2b` under GCC 13 MinGW. Initialization errors propagate through `std::expected<void, std::string>` chains up to a single message box, buffers cross API boundaries as `std::span`, template visitors and predicates are constrained with concepts, text goes through `std::format` and `std::string_view`, timing uses `std::chrono`, and the three hand-rolled copies of the Amanatides-Woo voxel traversal collapsed into one `VoxelDda` class shared by the raycaster, the occlusion query, the lidar integration, the chord gate and the reflex probe.
 
 ## Building
 
@@ -88,3 +117,33 @@ The simulation core is platform-independent. `tests/HeadlessTest.cpp` runs the f
 ## Tuning
 
 All the interesting knobs live in `src/Config.h`: world size, voxel resolution, lidar range and ray count, cruise speed, controller gains, replan interval.
+
+## License
+
+MIT License
+
+Copyright (c) 2026 Mykhailo Makarov
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+## Support
+
+If you found this project interesting or useful, you can support my work:
+
+[![GitHub Sponsors](https://img.shields.io/github/sponsors/makarov-mm?style=flat&logo=github)](https://github.com/sponsors/makarov-mm)

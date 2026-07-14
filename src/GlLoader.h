@@ -1,8 +1,13 @@
 #pragma once
 #define WIN32_LEAN_AND_MEAN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <windows.h>
 #include <GL/gl.h>
 #include <cstddef>
+#include <expected>
+#include <string>
 
 typedef char GLchar;
 typedef ptrdiff_t GLsizeiptr;
@@ -46,5 +51,6 @@ extern void   (APIENTRY *glDeleteBuffers)(GLsizei n, const GLuint* buffers);
 extern void   (APIENTRY *glEnableVertexAttribArray)(GLuint index);
 extern void   (APIENTRY *glVertexAttribPointer)(GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void* pointer);
 
-// Must be called with a current OpenGL context. Returns false if any entry point is missing.
-bool LoadGlFunctions();
+// Must be called with a current OpenGL context. On failure the error
+// carries the name of the first missing entry point.
+[[nodiscard]] std::expected<void, std::string> LoadGlFunctions();

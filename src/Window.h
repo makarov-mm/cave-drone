@@ -1,6 +1,11 @@
 #pragma once
 #define WIN32_LEAN_AND_MEAN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <windows.h>
+#include <expected>
+#include <string>
 
 struct InputState
 {
@@ -20,7 +25,7 @@ public:
     Window(const Window&) = delete;
     Window& operator=(const Window&) = delete;
 
-    bool Create(const char* title, int width, int height);
+    [[nodiscard]] std::expected<void, std::string> Create(const char* title, int width, int height);
     bool PumpMessages();           // returns false when the app should quit
     void SwapBuffers() const;
     void SetTitle(const char* title) const;

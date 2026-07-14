@@ -37,7 +37,7 @@ public:
                 float dirBlend = 1.0f - std::exp(-2.5f * dt);
                 m_followDir = Normalize(Lerp(m_followDir, droneVel * (1.0f / speed), dirBlend));
             }
-            eyeDir = Normalize(m_followDir * -1.0f + Vec3{0.0f, 0.5f, 0.0f});
+            eyeDir = Normalize(-m_followDir + Vec3{0.0f, 0.5f, 0.0f});
             wantDist = m_chaseDist;
         }
         else
@@ -105,7 +105,7 @@ public:
         m_target = target;
         m_followDir = Vec3{0.0f, 0.0f, 1.0f};
         m_curDist = m_chaseDist;
-        m_eye = m_target + Normalize(m_followDir * -1.0f + Vec3{0.0f, 0.5f, 0.0f}) * m_curDist;
+        m_eye = m_target + Normalize(-m_followDir + Vec3{0.0f, 0.5f, 0.0f}) * m_curDist;
     }
 
 private:

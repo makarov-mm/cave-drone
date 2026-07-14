@@ -2,6 +2,7 @@
 #include "LineRenderer.h"
 #include "Drone.h"
 #include "Math.h"
+#include <string_view>
 
 // FPV HUD in the style of industrial drone ground stations: crosshair,
 // artificial horizon that rolls with the vehicle, compass ribbon, speed
@@ -12,11 +13,11 @@
 namespace Hud
 {
     // Text metrics: glyph height = size, advance = 0.78 * size
-    float TextWidth(const char* text, float size);
+    [[nodiscard]] float TextWidth(std::string_view text, float size);
     void DrawText(LineRenderer& lines, float x, float y, float size,
-                  const char* text, const Vec3& color);
+                  std::string_view text, const Vec3& color);
 
     // paneW/paneH in pixels; drone provides attitude and speed
     void Draw(LineRenderer& lines, int paneW, int paneH,
-              const Drone& drone, int droneIndex, const char* status);
+              const Drone& drone, int droneIndex, std::string_view status);
 }

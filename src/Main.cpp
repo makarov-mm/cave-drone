@@ -5,10 +5,9 @@
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
     App app;
-    if (!app.Init())
+    if (auto initialized = app.Init(); !initialized)
     {
-        MessageBoxA(nullptr, "Failed to initialize (window / OpenGL 3.3 context).",
-                    "CaveDroneSim", MB_ICONERROR);
+        MessageBoxA(nullptr, initialized.error().c_str(), "CaveDroneSim", MB_ICONERROR);
         return 1;
     }
     return app.Run();

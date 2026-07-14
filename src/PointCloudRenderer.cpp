@@ -37,10 +37,10 @@ void main()
 )GLSL";
 }
 
-bool PointCloudRenderer::Init()
+std::expected<void, std::string> PointCloudRenderer::Init()
 {
-    if (!m_shader.Build(kVertexSrc, kFragmentSrc))
-        return false;
+    if (auto built = m_shader.Build(kVertexSrc, kFragmentSrc); !built)
+        return built;
     glGenVertexArrays(1, &m_vao);
     glGenBuffers(1, &m_vbo);
     glBindVertexArray(m_vao);
@@ -49,7 +49,7 @@ bool PointCloudRenderer::Init()
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), reinterpret_cast<void*>(0));
     glBindVertexArray(0);
-    return true;
+    return {};
 }
 
 void PointCloudRenderer::Shutdown()

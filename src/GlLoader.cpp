@@ -46,9 +46,10 @@ namespace
 
 #define LOAD_GL(name) \
     name = reinterpret_cast<decltype(name)>(GetProc(#name)); \
-    if (name == nullptr) return false;
+    if (name == nullptr) \
+        return std::unexpected(std::string("missing OpenGL entry point: ") + #name);
 
-bool LoadGlFunctions()
+std::expected<void, std::string> LoadGlFunctions()
 {
     LOAD_GL(glCreateShader)
     LOAD_GL(glShaderSource)
@@ -77,5 +78,5 @@ bool LoadGlFunctions()
     LOAD_GL(glDeleteBuffers)
     LOAD_GL(glEnableVertexAttribArray)
     LOAD_GL(glVertexAttribPointer)
-    return true;
+    return {};
 }

@@ -92,6 +92,9 @@
     <ClInclude Include="src\Noise.h">
       <Filter>Simulation</Filter>
     </ClInclude>
+    <ClInclude Include="src\VoxelDda.h">
+      <Filter>Simulation</Filter>
+    </ClInclude>
     <ClInclude Include="src\VoxelRenderer.h">
       <Filter>Rendering</Filter>
     </ClInclude>

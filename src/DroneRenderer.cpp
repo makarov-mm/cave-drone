@@ -83,10 +83,10 @@ void DroneRenderer::AddBox(std::vector<float>& verts, const Vec3& center,
     }
 }
 
-bool DroneRenderer::Init()
+std::expected<void, std::string> DroneRenderer::Init()
 {
-    if (!m_shader.Build(kVertexSrc, kFragmentSrc))
-        return false;
+    if (auto built = m_shader.Build(kVertexSrc, kFragmentSrc); !built)
+        return built;
 
     // Body: central block, canopy, four diagonal arms, motor pods
     std::vector<float> body;
@@ -113,7 +113,7 @@ bool DroneRenderer::Init()
     m_propVertexCount = static_cast<int>(prop.size() / 6);
     UploadMesh(m_propVao, m_propVbo, prop);
 
-    return true;
+    return {};
 }
 
 void DroneRenderer::Shutdown()

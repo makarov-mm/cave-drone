@@ -12,6 +12,8 @@
 #include "DustRenderer.h"
 #include "LineRenderer.h"
 #include "DroneRenderer.h"
+#include <expected>
+#include <string>
 #include <vector>
 
 // One autonomous agent of the fleet. All agents integrate their lidar
@@ -28,12 +30,15 @@ struct AgentState
     double stuckTimer = 0.0;
     Vec3 home;
     bool atHome = false;
+    bool relaxedPath = false;
+    double stallTimer = 0.0;
+    float bestDistToEnd = 1e9f;
 };
 
 class App
 {
 public:
-    bool Init();
+    [[nodiscard]] std::expected<void, std::string> Init();
     int Run();
 
 private:

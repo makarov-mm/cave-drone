@@ -1,6 +1,8 @@
 #pragma once
 #include "GlLoader.h"
 #include "Shader.h"
+#include <expected>
+#include <string>
 #include "Math.h"
 #include <vector>
 
@@ -12,7 +14,7 @@
 class PointCloudRenderer
 {
 public:
-    bool Init();
+    [[nodiscard]] std::expected<void, std::string> Init();
     void Shutdown();
 
     void AddPoints(const std::vector<Vec3>& points);

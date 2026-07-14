@@ -2,6 +2,7 @@
 #include "Math.h"
 #include "Config.h"
 #include <cstdint>
+#include <span>
 #include <vector>
 
 // Greedy meshing shared by the observed-map renderer and the ground-truth
@@ -23,5 +24,5 @@ inline int PaddedIndex(int x, int y, int z)
     return ((y + 1) * PADDED_SIZE + (z + 1)) * PADDED_SIZE + (x + 1);
 }
 
-void GreedyMeshChunk(const uint8_t* paddedSolid, const Vec3& chunkOrigin,
+void GreedyMeshChunk(std::span<const uint8_t> paddedSolid, const Vec3& chunkOrigin,
                      std::vector<float>& outVerts);

@@ -1,5 +1,5 @@
 #include "Shader.h"
-#include <cstdio>
+#include <format>
 
 Shader::~Shader()
 {
@@ -16,41 +16,58 @@ GLuint Shader::Compile(GLenum type, const char* src)
     glGetShaderiv(shader, GL_COMPILE_STATUS, &ok);
     if (ok == 0)
     {
-        char log[2048];
-        glGetShaderInfoLog(shader, sizeof(log), nullptr, log);
-        char msg[2304];
-        _snprintf_s(msg, _TRUNCATE, "Shader compile error:\n%s", log);
-        MessageBoxA(nullptr, msg, "CaveDroneSim", MB_ICONERROR);
         glDeleteShader(shader);
         return 0;
     }
     return shader;
 }
 
-bool Shader::Build(const char* vertexSrc, const char* fragmentSrc)
+std::expected<void, std::string> Shader::Build(const char* vertexSrc, const char* fragmentSrc)
 {
-    GLuint vs = Compile(GL_VERTEX_SHADER, vertexSrc);
-    GLuint fs = Compile(GL_FRAGMENT_SHADER, fragmentSrc);
-    if (vs == 0 || fs == 0)
-        return false;
+    auto compileChecked = [](GLenum type, const char* src)
+        -> std::expected<GLuint, std::string>
+    {
+        GLuint shader = Compile(type, src);
+        if (shader != 0)
+            return shader;
+        // Re-run to fetch the log for the error message
+        shader = glCreateShader(type);
+        glShaderSource(shader, 1, &src, nullptr);
+        glCompileShader(shader);
+        char log[2048] = {};
+        glGetShaderInfoLog(shader, sizeof(log), nullptr, log);
+        glDeleteShader(shader);
+        return std::unexpected(std::format(
+            "{} shader compile error:\n{}",
+            type == GL_VERTEX_SHADER ? "vertex" : "fragment", log));
+    };
+
+    auto vs = compileChecked(GL_VERTEX_SHADER, vertexSrc);
+    if (!vs)
+        return std::unexpected(vs.error());
+    auto fs = compileChecked(GL_FRAGMENT_SHADER, fragmentSrc);
+    if (!fs)
+    {
+        glDeleteShader(*vs);
+        return std::unexpected(fs.error());
+    }
 
     m_program = glCreateProgram();
-    glAttachShader(m_program, vs);
-    glAttachShader(m_program, fs);
+    glAttachShader(m_program, *vs);
+    glAttachShader(m_program, *fs);
     glLinkProgram(m_program);
-    glDeleteShader(vs);
-    glDeleteShader(fs);
+    glDeleteShader(*vs);
+    glDeleteShader(*fs);
 
     GLint ok = 0;
     glGetProgramiv(m_program, GL_LINK_STATUS, &ok);
     if (ok == 0)
     {
-        char log[2048];
+        char log[2048] = {};
         glGetProgramInfoLog(m_program, sizeof(log), nullptr, log);
-        MessageBoxA(nullptr, log, "Shader link error", MB_ICONERROR);
-        return false;
+        return std::unexpected(std::format("shader link error:\n{}", log));
     }
-    return true;
+    return {};
 }
 
 void Shader::Use() const

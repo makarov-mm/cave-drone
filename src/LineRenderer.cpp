@@ -26,10 +26,10 @@ void main()
 )GLSL";
 }
 
-bool LineRenderer::Init()
+std::expected<void, std::string> LineRenderer::Init()
 {
-    if (!m_shader.Build(kVertexSrc, kFragmentSrc))
-        return false;
+    if (auto built = m_shader.Build(kVertexSrc, kFragmentSrc); !built)
+        return built;
     glGenVertexArrays(1, &m_vao);
     glGenBuffers(1, &m_vbo);
     glBindVertexArray(m_vao);
@@ -40,7 +40,7 @@ bool LineRenderer::Init()
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>(3 * sizeof(float)));
     glBindVertexArray(0);
-    return true;
+    return {};
 }
 
 void LineRenderer::Shutdown()
@@ -62,7 +62,7 @@ void LineRenderer::AddLine(const Vec3& a, const Vec3& b, const Vec3& color)
     m_verts.insert(m_verts.end(), data, data + 12);
 }
 
-void LineRenderer::AddPolyline(const std::vector<Vec3>& points, const Vec3& color)
+void LineRenderer::AddPolyline(std::span<const Vec3> points, const Vec3& color)
 {
     for (size_t i = 0; i + 1 < points.size(); ++i)
         AddLine(points[i], points[i + 1], color);

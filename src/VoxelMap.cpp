@@ -1,4 +1,5 @@
 #include "VoxelMap.h"
+#include "VoxelDda.h"
 
 VoxelMap::Chunk& VoxelMap::GetOrCreateChunk(int cx, int cy, int cz)
 {
@@ -67,47 +68,8 @@ void VoxelMap::Clear()
 
 float VoxelMap::OccludedDistance(const Vec3& origin, const Vec3& dir, float maxDist) const
 {
-    const float inv = 1.0f / VOXEL_SIZE;
-    int ix = static_cast<int>(std::floor(origin.x * inv));
-    int iy = static_cast<int>(std::floor(origin.y * inv));
-    int iz = static_cast<int>(std::floor(origin.z * inv));
-
-    int stepX = dir.x > 0.0f ? 1 : -1;
-    int stepY = dir.y > 0.0f ? 1 : -1;
-    int stepZ = dir.z > 0.0f ? 1 : -1;
-
-    auto boundary = [](float o, float d, int i, int step)
-    {
-        float edge = (step > 0 ? static_cast<float>(i + 1) : static_cast<float>(i)) * VOXEL_SIZE;
-        return (edge - o) / d;
-    };
-
-    float tMaxX = std::fabs(dir.x) > 1e-8f ? boundary(origin.x, dir.x, ix, stepX) : 1e30f;
-    float tMaxY = std::fabs(dir.y) > 1e-8f ? boundary(origin.y, dir.y, iy, stepY) : 1e30f;
-    float tMaxZ = std::fabs(dir.z) > 1e-8f ? boundary(origin.z, dir.z, iz, stepZ) : 1e30f;
-
-    float tDeltaX = std::fabs(dir.x) > 1e-8f ? VOXEL_SIZE / std::fabs(dir.x) : 1e30f;
-    float tDeltaY = std::fabs(dir.y) > 1e-8f ? VOXEL_SIZE / std::fabs(dir.y) : 1e30f;
-    float tDeltaZ = std::fabs(dir.z) > 1e-8f ? VOXEL_SIZE / std::fabs(dir.z) : 1e30f;
-
-    float t = 0.0f;
-    while (t <= maxDist)
-    {
-        if (Get(ix, iy, iz) == CellState::Occupied)
-            return t;
-
-        if (tMaxX < tMaxY && tMaxX < tMaxZ)
-        {
-            t = tMaxX; tMaxX += tDeltaX; ix += stepX;
-        }
-        else if (tMaxY < tMaxZ)
-        {
-            t = tMaxY; tMaxY += tDeltaY; iy += stepY;
-        }
-        else
-        {
-            t = tMaxZ; tMaxZ += tDeltaZ; iz += stepZ;
-        }
-    }
+    for (VoxelDda dda(origin, dir); dda.EnterT() <= maxDist; dda.Step())
+        if (Get(dda.X(), dda.Y(), dda.Z()) == CellState::Occupied)
+            return dda.EnterT();
     return maxDist;
 }

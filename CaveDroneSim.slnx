@@ -2,5 +2,5 @@
   <Configurations>
     <Platform Name="x64" />
   </Configurations>
-  <Project Path="CaveDroneSim.vcxproj" />
+  <Project Path="CaveDroneSim.vcxproj" Id="4e7a9b2c-6d31-4f8e-9a5c-1b2d3e4f5a6b" />
 </Solution>

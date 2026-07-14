@@ -24,13 +24,13 @@ namespace
     }
 }
 
-void GreedyMeshChunk(const uint8_t* paddedSolid, const Vec3& chunkOrigin,
+void GreedyMeshChunk(std::span<const uint8_t> paddedSolid, const Vec3& chunkOrigin,
                      std::vector<float>& outVerts)
 {
     const int N = CHUNK_SIZE;
     auto at = [paddedSolid](int x, int y, int z)
     {
-        return paddedSolid[PaddedIndex(x, y, z)] != 0;
+        return paddedSolid[static_cast<size_t>(PaddedIndex(x, y, z))] != 0;
     };
 
     uint8_t mask[CHUNK_SIZE * CHUNK_SIZE];

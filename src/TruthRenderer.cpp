@@ -83,7 +83,7 @@ void main()
     }
 }
 
-bool TruthRenderer::Init()
+std::expected<void, std::string> TruthRenderer::Init()
 {
     return m_shader.Build(kVertexSrc, kFragmentSrc);
 }
@@ -129,7 +129,7 @@ void TruthRenderer::Build(const World& world)
                 Vec3 origin{cx * CHUNK_SIZE * VOXEL_SIZE,
                             cy * CHUNK_SIZE * VOXEL_SIZE,
                             cz * CHUNK_SIZE * VOXEL_SIZE};
-                GreedyMeshChunk(padded.data(), origin, verts);
+                GreedyMeshChunk(padded, origin, verts);
                 if (verts.empty())
                     continue;
 

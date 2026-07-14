@@ -4,10 +4,11 @@
 // every visible face is covered exactly once, no invisible face is covered.
 // Also reports the compression ratio versus naive per-face meshing.
 // Compile:
-//   g++ -O2 -std=c++17 tests/GreedyMeshTest.cpp src/Meshing.cpp -Isrc -o greedy_test
+//   g++ -O2 -std=c++2b tests/GreedyMeshTest.cpp src/Meshing.cpp -Isrc -o greedy_test
 #include "../src/Meshing.h"
 #include <cstdio>
 #include <cstring>
+#include <span>
 #include <cmath>
 #include <random>
 #include <vector>
@@ -15,7 +16,7 @@
 static int failures = 0;
 static const int N = CHUNK_SIZE;
 
-static bool At(const uint8_t* padded, int x, int y, int z)
+static bool At(std::span<const uint8_t> padded, int x, int y, int z)
 {
     return padded[PaddedIndex(x, y, z)] != 0;
 }
@@ -27,7 +28,7 @@ static int CoverIndex(int axis, int signIdx, int slice, int b, int a)
     return (((axis * 2 + signIdx) * N + slice) * N + b) * N + a;
 }
 
-static bool CheckPattern(const uint8_t* padded, const char* name, bool report)
+static bool CheckPattern(std::span<const uint8_t> padded, const char* name, bool report)
 {
     std::vector<float> verts;
     GreedyMeshChunk(padded, Vec3{0, 0, 0}, verts);
@@ -136,12 +137,12 @@ int main()
 
     // Empty chunk
     clear();
-    if (!CheckPattern(padded.data(), "empty", false)) ++failures;
+    if (!CheckPattern(padded, "empty", false)) ++failures;
 
     // Single voxel
     clear();
     set(7, 7, 7, 1);
-    if (!CheckPattern(padded.data(), "single voxel", true)) ++failures;
+    if (!CheckPattern(padded, "single voxel", true)) ++failures;
 
     // Full chunk with empty surroundings: 6 faces of N*N each
     clear();
@@ -149,14 +150,14 @@ int main()
         for (int z = 0; z < N; ++z)
             for (int x = 0; x < N; ++x)
                 set(x, y, z, 1);
-    if (!CheckPattern(padded.data(), "full chunk", true)) ++failures;
+    if (!CheckPattern(padded, "full chunk", true)) ++failures;
 
     // Flat plate: best case for merging
     clear();
     for (int z = 0; z < N; ++z)
         for (int x = 0; x < N; ++x)
             set(x, 5, z, 1);
-    if (!CheckPattern(padded.data(), "flat plate", true)) ++failures;
+    if (!CheckPattern(padded, "flat plate", true)) ++failures;
 
     // L-shaped slab: forces non-trivial rectangle decomposition
     clear();
@@ -164,7 +165,7 @@ int main()
         for (int x = 0; x < N; ++x)
             if (x < 8 || z < 8)
                 set(x, 3, z, 1);
-    if (!CheckPattern(padded.data(), "L-shaped slab", true)) ++failures;
+    if (!CheckPattern(padded, "L-shaped slab", true)) ++failures;
 
     // Random fills, including a random border ring from "neighbor chunks"
     for (uint32_t seed = 1; seed <= 5; ++seed)
@@ -178,7 +179,7 @@ int main()
                     set(x, y, z, uni(rng) < 0.3f ? 1 : 0);
         char name[64];
         std::snprintf(name, sizeof(name), "random 30%% seed %u", seed);
-        if (!CheckPattern(padded.data(), name, true)) ++failures;
+        if (!CheckPattern(padded, name, true)) ++failures;
     }
 
     std::printf("%s\n", failures == 0 ? "ALL PASS" : "FAILURES");

@@ -1,6 +1,8 @@
 #pragma once
 #include "GlLoader.h"
 #include "Shader.h"
+#include <expected>
+#include <string>
 #include "Drone.h"
 #include "Math.h"
 #include <vector>
@@ -10,7 +12,7 @@
 class DroneRenderer
 {
 public:
-    bool Init();
+    [[nodiscard]] std::expected<void, std::string> Init();
     void Shutdown();
     void Draw(const Mat4& viewProj, const Drone& drone) const;
 

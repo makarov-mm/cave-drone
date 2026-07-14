@@ -1,6 +1,8 @@
 #pragma once
 #include "GlLoader.h"
 #include "Shader.h"
+#include <expected>
+#include <string>
 #include "World.h"
 #include "Math.h"
 #include <vector>
@@ -16,7 +18,7 @@
 class TruthRenderer
 {
 public:
-    bool Init();
+    [[nodiscard]] std::expected<void, std::string> Init();
     void Shutdown();
 
     // Meshes the whole ground-truth surface. Call after World::Generate.

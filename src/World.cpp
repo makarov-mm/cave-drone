@@ -1,5 +1,6 @@
 #include "World.h"
 #include "Noise.h"
+#include <numbers>
 #include <random>
 #include <queue>
 #include <array>
@@ -68,7 +69,7 @@ void World::CarveTunnels(uint32_t seed)
         float py = WORLD_NY * 0.5f;
         float pz = WORLD_NZ * 0.5f;
 
-        float yaw = uni(rng) * 6.2831853f;
+        float yaw = uni(rng) * 2.0f * std::numbers::pi_v<float>;
         float pitch = (uni(rng) - 0.5f) * 0.5f;
         float radius = 1.8f + uni(rng) * 1.2f;
 
@@ -126,46 +127,8 @@ void World::KeepMainCavity(int startX, int startY, int startZ)
 
 float World::HitDistance(const Vec3& origin, const Vec3& dir, float maxDist) const
 {
-    const float inv = 1.0f / VOXEL_SIZE;
-    int ix = static_cast<int>(std::floor(origin.x * inv));
-    int iy = static_cast<int>(std::floor(origin.y * inv));
-    int iz = static_cast<int>(std::floor(origin.z * inv));
-
-    int stepX = dir.x > 0.0f ? 1 : -1;
-    int stepY = dir.y > 0.0f ? 1 : -1;
-    int stepZ = dir.z > 0.0f ? 1 : -1;
-
-    auto boundary = [](float o, float d, int i, int step)
-    {
-        float edge = (step > 0 ? static_cast<float>(i + 1) : static_cast<float>(i)) * VOXEL_SIZE;
-        return (edge - o) / d;
-    };
-
-    float tMaxX = std::fabs(dir.x) > 1e-8f ? boundary(origin.x, dir.x, ix, stepX) : 1e30f;
-    float tMaxY = std::fabs(dir.y) > 1e-8f ? boundary(origin.y, dir.y, iy, stepY) : 1e30f;
-    float tMaxZ = std::fabs(dir.z) > 1e-8f ? boundary(origin.z, dir.z, iz, stepZ) : 1e30f;
-
-    float tDeltaX = std::fabs(dir.x) > 1e-8f ? VOXEL_SIZE / std::fabs(dir.x) : 1e30f;
-    float tDeltaY = std::fabs(dir.y) > 1e-8f ? VOXEL_SIZE / std::fabs(dir.y) : 1e30f;
-    float tDeltaZ = std::fabs(dir.z) > 1e-8f ? VOXEL_SIZE / std::fabs(dir.z) : 1e30f;
-
-    float t = 0.0f;
-    while (t <= maxDist)
-    {
-        if (IsSolid(ix, iy, iz))
-            return t;
-        if (tMaxX < tMaxY && tMaxX < tMaxZ)
-        {
-            t = tMaxX; tMaxX += tDeltaX; ix += stepX;
-        }
-        else if (tMaxY < tMaxZ)
-        {
-            t = tMaxY; tMaxY += tDeltaY; iy += stepY;
-        }
-        else
-        {
-            t = tMaxZ; tMaxZ += tDeltaZ; iz += stepZ;
-        }
-    }
+    for (VoxelDda dda(origin, dir); dda.EnterT() <= maxDist; dda.Step())
+        if (IsSolid(dda.X(), dda.Y(), dda.Z()))
+            return dda.EnterT();
     return maxDist + 1.0f;
 }

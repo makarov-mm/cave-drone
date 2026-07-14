@@ -1,7 +1,8 @@
 #include "Hud.h"
+#include <array>
 #include <cmath>
-#include <cstdio>
-#include <cstring>
+#include <format>
+#include <numbers>
 
 namespace
 {
@@ -14,7 +15,7 @@ namespace
         float segments[10][4];
     };
 
-    const Glyph kFont[] = {
+    constexpr std::array kFont = std::to_array<Glyph>({
         {'0', 4, {{0,0,0,1},{0,1,1,1},{1,1,1,0},{1,0,0,0}}},
         {'1', 1, {{0.5f,0,0.5f,1}}},
         {'2', 5, {{0,1,1,1},{1,1,1,0.5f},{1,0.5f,0,0.5f},{0,0.5f,0,0},{0,0,1,0}}},
@@ -56,7 +57,7 @@ namespace
         {'/', 1, {{0,0,1,1}}},
         {':', 2, {{0.45f,0.25f,0.55f,0.25f},{0.45f,0.72f,0.55f,0.72f}}},
         {'%', 3, {{0,0,1,1},{0,0.75f,0.25f,1},{0.75f,0,1,0.25f}}},
-    };
+    });
 
     const Glyph* FindGlyph(char c)
     {
@@ -72,18 +73,18 @@ namespace
 namespace Hud
 {
 
-float TextWidth(const char* text, float size)
+float TextWidth(std::string_view text, float size)
 {
-    return static_cast<float>(std::strlen(text)) * size * 0.78f;
+    return static_cast<float>(text.size()) * size * 0.78f;
 }
 
 void DrawText(LineRenderer& lines, float x, float y, float size,
-              const char* text, const Vec3& color)
+              std::string_view text, const Vec3& color)
 {
     float cursor = x;
-    for (const char* c = text; *c != '\0'; ++c)
+    for (char character : text)
     {
-        const Glyph* glyph = FindGlyph(*c);
+        const Glyph* glyph = FindGlyph(character);
         if (glyph != nullptr)
             for (int i = 0; i < glyph->segmentCount; ++i)
             {
@@ -98,7 +99,7 @@ void DrawText(LineRenderer& lines, float x, float y, float size,
 }
 
 void Draw(LineRenderer& lines, int paneW, int paneH,
-          const Drone& drone, int droneIndex, const char* status)
+          const Drone& drone, int droneIndex, std::string_view status)
 {
     const float w = static_cast<float>(paneW);
     const float h = static_cast<float>(paneH);
@@ -114,7 +115,7 @@ void Draw(LineRenderer& lines, int paneW, int paneH,
     Vec3 up = q.Rotate(Vec3{0.0f, 1.0f, 0.0f});
     float roll = std::atan2(right.y, up.y);
     float pitch = std::asin(Clamp(fwd.y, -1.0f, 1.0f));
-    float headingDeg = std::atan2(fwd.x, fwd.z) * 57.29578f;
+    float headingDeg = std::atan2(fwd.x, fwd.z) * (180.0f / std::numbers::pi_v<float>);
     if (headingDeg < 0.0f)
         headingDeg += 360.0f;
 
@@ -137,8 +138,8 @@ void Draw(LineRenderer& lines, int paneW, int paneH,
         lines.AddLine(mid + dir * 0.25f, mid + dir, green);
         // End ticks pointing down
         Vec3 tick{s * 8.0f, -c * 8.0f, 0.0f};
-        lines.AddLine(mid - dir, mid - dir - tick * -1.0f, green);
-        lines.AddLine(mid + dir, mid + dir - tick * -1.0f, green);
+        lines.AddLine(mid - dir, mid - dir + tick, green);
+        lines.AddLine(mid + dir, mid + dir + tick, green);
     }
 
     // Compass ribbon along the top: ticks every 15 degrees inside +-50
@@ -161,40 +162,33 @@ void Draw(LineRenderer& lines, int paneW, int paneH,
                           major ? green : dim);
             if (deg % 90 == 0)
             {
-                const char* names = "NESW"; // 0, 90, 180... careful: 180 is S
-                char label[2] = {names[(deg / 90) % 4], '\0'};
-                if (deg == 180) label[0] = 'S';
-                if (deg == 270) label[0] = 'W';
-                DrawText(lines, x - 5.0f, ribbonY + 13.0f, 13.0f, label, green);
+                constexpr std::string_view names = "NESW"; // 0 / 90 / 180 / 270
+                DrawText(lines, x - 5.0f, ribbonY + 13.0f, 13.0f,
+                         names.substr(static_cast<size_t>(deg / 90), 1), green);
             }
         }
         // Heading readout under the center caret
         lines.AddLine({cx, ribbonY - 2.0f, 0}, {cx - 5.0f, ribbonY - 9.0f, 0}, green);
         lines.AddLine({cx, ribbonY - 2.0f, 0}, {cx + 5.0f, ribbonY - 9.0f, 0}, green);
-        char headingText[8];
-        std::snprintf(headingText, sizeof(headingText), "%03d", static_cast<int>(headingDeg + 0.5f));
+        const std::string headingText =
+            std::format("{:03d}", static_cast<int>(headingDeg + 0.5f));
         DrawText(lines, cx - TextWidth(headingText, 13.0f) * 0.5f, ribbonY - 26.0f, 13.0f,
                  headingText, green);
     }
 
     // Speed (left) and altitude (right) blocks
     {
-        char value[24];
         float y = cy - 8.0f;
         DrawText(lines, 26.0f, y + 26.0f, 11.0f, "SPD M/S", dim);
-        std::snprintf(value, sizeof(value), "%4.1f", drone.Speed());
-        DrawText(lines, 26.0f, y, 20.0f, value, green);
+        DrawText(lines, 26.0f, y, 20.0f, std::format("{:4.1f}", drone.Speed()), green);
 
         DrawText(lines, w - 118.0f, y + 26.0f, 11.0f, "ALT M", dim);
-        std::snprintf(value, sizeof(value), "%5.1f", drone.Position().y);
-        DrawText(lines, w - 118.0f, y, 20.0f, value, green);
+        DrawText(lines, w - 118.0f, y, 20.0f, std::format("{:5.1f}", drone.Position().y), green);
     }
 
     // Status line and vehicle id at the bottom
     {
-        char id[16];
-        std::snprintf(id, sizeof(id), "UAV %d", droneIndex + 1);
-        DrawText(lines, 26.0f, 20.0f, 13.0f, id, green);
+        DrawText(lines, 26.0f, 20.0f, 13.0f, std::format("UAV {}", droneIndex + 1), green);
         DrawText(lines, w - TextWidth(status, 13.0f) - 26.0f, 20.0f, 13.0f, status, green);
     }
 }

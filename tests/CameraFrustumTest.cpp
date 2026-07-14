@@ -1,6 +1,6 @@
 // Native logic test for the frustum math and the chase camera occlusion.
 // Compile:
-//   g++ -O2 -std=c++17 tests/CameraFrustumTest.cpp src/VoxelMap.cpp -Isrc -o camera_test
+//   g++ -O2 -std=c++2b tests/CameraFrustumTest.cpp src/VoxelMap.cpp -Isrc -o camera_test
 #include "../src/Math.h"
 #include "../src/VoxelMap.h"
 #include "../src/Camera.h"

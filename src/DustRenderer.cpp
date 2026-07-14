@@ -1,4 +1,5 @@
 #include "DustRenderer.h"
+#include <numbers>
 
 namespace
 {
@@ -36,10 +37,10 @@ void main()
 )GLSL";
 }
 
-bool DustRenderer::Init()
+std::expected<void, std::string> DustRenderer::Init()
 {
-    if (!m_shader.Build(kVertexSrc, kFragmentSrc))
-        return false;
+    if (auto built = m_shader.Build(kVertexSrc, kFragmentSrc); !built)
+        return built;
     glGenVertexArrays(1, &m_vao);
     glGenBuffers(1, &m_vbo);
     glBindVertexArray(m_vao);
@@ -51,7 +52,7 @@ bool DustRenderer::Init()
 
     m_particles.resize(kParticleCount);
     m_upload.resize(kParticleCount * 3);
-    return true;
+    return {};
 }
 
 void DustRenderer::Shutdown()
@@ -70,18 +71,20 @@ void DustRenderer::Respawn(Particle& particle, const Vec3& center)
     } while (Dot(offset, offset) > 1.0f);
     particle.position = center + offset * (kBubbleRadius * 0.95f);
     particle.velocity = Vec3{uni(m_rng), uni(m_rng) * 0.4f - 0.05f, uni(m_rng)} * 0.12f;
-    particle.phase = (uni(m_rng) + 1.0f) * 3.1416f;
+    particle.phase = (uni(m_rng) + 1.0f) * std::numbers::pi_v<float>;
 }
 
 void DustRenderer::Update(float dt, const Vec3& droneCenter)
 {
     m_time += dt;
-    bool first = m_particles[0].phase == 0.0f && m_particles[0].velocity.x == 0.0f;
+    if (!m_seeded)
+    {
+        for (Particle& particle : m_particles)
+            Respawn(particle, droneCenter);
+        m_seeded = true;
+    }
     for (Particle& particle : m_particles)
     {
-        if (first)
-            Respawn(particle, droneCenter);
-
         // Slow drift plus a gentle sinusoidal wobble
         Vec3 wobble{
             std::sin(m_time * 0.7f + particle.phase) * 0.03f,

@@ -1,6 +1,8 @@
 #pragma once
 #include "GlLoader.h"
 #include "Shader.h"
+#include <expected>
+#include <string>
 #include "VoxelMap.h"
 #include "Math.h"
 #include <unordered_map>
@@ -12,7 +14,7 @@
 class VoxelRenderer
 {
 public:
-    bool Init();
+    [[nodiscard]] std::expected<void, std::string> Init();
     void Shutdown();
 
     // Rebuilds up to `budget` dirty chunk meshes per call. `now` stamps

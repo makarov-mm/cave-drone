@@ -1,6 +1,8 @@
 #pragma once
 #include "GlLoader.h"
 #include "Shader.h"
+#include <expected>
+#include <string>
 #include "Math.h"
 #include <random>
 #include <vector>
@@ -13,7 +15,7 @@
 class DustRenderer
 {
 public:
-    bool Init();
+    [[nodiscard]] std::expected<void, std::string> Init();
     void Shutdown();
 
     void Update(float dt, const Vec3& droneCenter);
@@ -37,6 +39,7 @@ private:
     std::vector<float> m_upload;
     std::mt19937 m_rng{20260713u};
     float m_time = 0.0f;
+    bool m_seeded = false;
 
     void Respawn(Particle& particle, const Vec3& center);
 };

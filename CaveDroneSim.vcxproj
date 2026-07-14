@@ -41,7 +41,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
@@ -58,7 +58,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <Optimization>MaxSpeed</Optimization>
     </ClCompile>
@@ -108,6 +108,7 @@
     <ClInclude Include="src\PointCloudRenderer.h" />
     <ClInclude Include="src\Shader.h" />
     <ClInclude Include="src\TruthRenderer.h" />
+    <ClInclude Include="src\VoxelDda.h" />
     <ClInclude Include="src\VoxelMap.h" />
     <ClInclude Include="src\VoxelRenderer.h" />
     <ClInclude Include="src\Window.h" />

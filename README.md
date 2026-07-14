@@ -114,10 +114,6 @@ The simulation core is platform-independent. `tests/HeadlessTest.cpp` runs the f
     g++ -O2 -std=c++17 tests/HeadlessTest.cpp src/World.cpp src/VoxelMap.cpp \
         src/Lidar.cpp src/Planner.cpp src/Drone.cpp -Isrc -o headless_test
 
-## Tuning
-
-All the interesting knobs live in `src/Config.h`: world size, voxel resolution, lidar range and ray count, cruise speed, controller gains, replan interval.
-
 ## License
 
 MIT License
